@@ -59,18 +59,18 @@
             </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
+                <!--<configuration>
                     <source>1.6</source>
                     <target>1.6</target>
-                </configuration>
+                </configuration>-->
             </plugin>
         </plugins>
     </build>
 
     <properties>
-        <jira.version>4.3.2</jira.version>
-        <amps.version>5.0.13</amps.version>
-        <jira.data.version>4.3</jira.data.version>
+        <jira.version>5.2.11</jira.version>
+        <amps.version>6.2.11</amps.version>
+        <jira.data.version>5.2</jira.data.version>
     </properties>
 
 </project>
