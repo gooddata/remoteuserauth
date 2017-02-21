@@ -68,13 +68,15 @@ public class RemoteUserJiraAuth extends JiraSeraphAuthenticator {
                 }
 
                 if (remoteuser != null) {
-                    Boolean removeRealm = new Boolean(true);
+                    boolean removeRealm = true;
                     if (p.getProperty("removeRealm") != null) {
-                        removeRealm = p.getProperty("removeRealm");
+                        removeRealm = Boolean.parseBoolean(p.getProperty("removeRealm"));
                     }
                     if (removeRealm) {
+                        log.debug("Removing realm from username");
                         user = getUser(remoteuser.split("@")[0]);
                     } else {
+                        log.debug("Keep realm in username");
                         user = getUser(remoteuser);
                     }
                     log.debug("Logging in with username: " + user);
