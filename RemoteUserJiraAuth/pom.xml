@@ -7,7 +7,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>anguswarren.jira</groupId>
     <artifactId>RemoteUserJiraAuth</artifactId>
-    <version>1.2-gdc1</version>
+    <version>1.2-gdc2</version>
 
     <organization>
         <name>Angus Warren</name>
