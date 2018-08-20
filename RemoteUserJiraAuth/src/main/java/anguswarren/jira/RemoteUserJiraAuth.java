@@ -29,12 +29,13 @@ import com.atlassian.jira.security.login.JiraSeraphAuthenticator;
 public class RemoteUserJiraAuth extends JiraSeraphAuthenticator {
     private static final Category log = Category.getInstance(RemoteUserJiraAuth.class);
 	
+    @Override
     public Principal getUser(HttpServletRequest request, HttpServletResponse response) {
         Principal user = null;
         try {
-            if (request.getSession() != null && request.getSession().getAttribute(JiraSeraphAuthenticator.LOGGED_IN_KEY) != null) {
-                log.debug("Session found; user already logged in");
-                user = (Principal) request.getSession().getAttribute(JiraSeraphAuthenticator.LOGGED_IN_KEY);
+            user = super.getUser(request, response);
+            if (user != null) {
+                log.debug("JiraSeraphAuthenticator.getUser succeeded");
             } else {
                 Properties p = new Properties();
                 try {
