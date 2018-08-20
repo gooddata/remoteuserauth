@@ -28,69 +28,92 @@ import com.atlassian.jira.security.login.JiraSeraphAuthenticator;
 
 public class RemoteUserJiraAuth extends JiraSeraphAuthenticator {
     private static final Category log = Category.getInstance(RemoteUserJiraAuth.class);
-	
+
+    private Properties getProperties() {
+        Properties p = new Properties();
+
+        try {
+            InputStream iStream = ClassLoaderUtils.getResourceAsStream("RemoteUserJiraAuth.properties", this.getClass());
+            p.load(iStream);
+        } catch (Exception e) {
+            log.debug("Exception loading propertie. The properties file is optional anyway, so this may not be an issues: " + e, e);
+        }
+
+        return p;
+    }
+
+    private boolean isTrustedHost(Properties p, HttpServletRequest request) {
+        final String trustedHosts = p.getProperty("trustedhosts");
+        if (trustedHosts != null) {
+            final String ipAddress = request.getRemoteAddr();
+            if (Arrays.asList(trustedHosts.split(",")).contains(ipAddress)) {
+                log.debug("IP found in trustedhosts.");
+                return true;
+            } else {
+                log.debug("IP not found in trustedhosts: " + ipAddress);
+                return false;
+            }
+        } else {
+            log.debug("trustedhosts not configured. If you're using http headers, this may be a security issue.");
+            return true;
+        }
+    }
+
+    private String getRemoteUser(Properties p, HttpServletRequest request) {
+        String header = p.getProperty("header");
+        if (header == null) {
+            log.debug("Trying REMOTE_USER for SSO");
+            return request.getRemoteUser();
+        } else {
+            log.debug("Trying HTTP header '" + header + "' for SSO");
+            return request.getHeader(header);
+        }
+    }
+
+    private String removeRealm(Properties p, String remoteUser) {
+        String removeRealm = p.getProperty("removeRealm");
+        if (removeRealm == null || Boolean.parseBoolean(removeRealm)) {
+            return remoteUser.split("@")[0];
+        } else {
+            return remoteUser;
+        }
+    }
+
     @Override
     public Principal getUser(HttpServletRequest request, HttpServletResponse response) {
-        Principal user = null;
         try {
-            user = super.getUser(request, response);
+            Principal user = super.getUser(request, response);
             if (user != null) {
                 log.debug("JiraSeraphAuthenticator.getUser succeeded");
-            } else {
-                Properties p = new Properties();
-                try {
-                    InputStream iStream = ClassLoaderUtils.getResourceAsStream("RemoteUserJiraAuth.properties", this.getClass());
-                    p.load(iStream);
-                } catch (Exception e) {
-                    log.debug("Exception loading propertie. The properties file is optional anyway, so this may not be an issues: " + e, e);
-                }
+                return user;
+            }
 
-                String trustedhosts = p.getProperty("trustedhosts");
-                if (trustedhosts != null) {
-                    String ipAddress = request.getRemoteAddr();
-                    if (Arrays.asList(trustedhosts.split(",")).contains(ipAddress)) {
-                        log.debug("IP found in trustedhosts.");
-                    } else {
-                        log.debug("IP not found in trustedhosts: " + ipAddress);
-                        return null; 
-                    }
-                } else {
-                    log.debug("trustedhosts not configured. If you're using http headers, this may be a security issue.");
-                }
+            final Properties p = getProperties();
 
-                String remoteuser = null;
-                String header = p.getProperty("header");
-                if (header == null) {
-                    log.debug("Trying REMOTE_USER for SSO");
-                    remoteuser = request.getRemoteUser();
-                } else {
-                    log.debug("Trying HTTP header '" + header + "' for SSO");
-                    remoteuser = request.getHeader(header);
-                }
+            if (!isTrustedHost(p, request)) {
+                return null;
+            }
 
-                if (remoteuser != null) {
-                    Boolean removeRealm = new Boolean(true);
-                    if (p.getProperty("removeRealm") != null) {
-                        removeRealm = Boolean.parseBoolean(p.getProperty("removeRealm"));
-                    }
-                    if (removeRealm) {
-                        log.debug("Trying to resolve remoteuser: " + remoteuser.split("@")[0]);
-                        user = getUser(remoteuser.split("@")[0]);
-                    } else {
-                        log.debug("Trying to resolve remoteuser: " + remoteuser);
-                        user = getUser(remoteuser);
-                    }
-                    log.debug("Logging in with username: " + user);
-                    request.getSession().setAttribute(JiraSeraphAuthenticator.LOGGED_IN_KEY, user);
-                    request.getSession().setAttribute(JiraSeraphAuthenticator.LOGGED_OUT_KEY, null);
-                } else {
-                    log.debug("remote_user is null");
-                    return null;
+            String remoteUser = getRemoteUser(p, request);
+            if (remoteUser == null) {
+                log.debug("remoteUser is null");
+                return null;
+            }
+
+            remoteUser = removeRealm(p, remoteUser);
+
+            log.debug("Trying to resolve remote user: " + remoteUser);
+            user = getUser(remoteUser);
+            if (user != null) {
+                log.debug("Logging in with username: " + user);
+                if (authoriseUserAndEstablishSession(request, response, user)) {
+                    return user;
                 }
             }
         } catch (Exception e) {
             log.error("Exception: " + e, e);
         }
-        return user;
+
+        return null;
     }
 }
